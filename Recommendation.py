@@ -2,47 +2,61 @@ import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import linear_kernel
 
-# Load dataset
-film_data = pd.read_csv("C:/Users/HAPPY/Downloads/movies.csv")
-film_data = film_data.fillna('')
+# Load your movies dataset
+film_collection = pd.read_csv("movies.csv")
+film_collection = film_collection.fillna('')
 
-# Combine attributes into a single string
-film_data['movie_attributes'] = (
-    film_data['Genre'] + ' ' + 
-    film_data['Lead Studio'] + ' ' +
-    film_data['Audience score %'].astype(str) + ' ' +
-    film_data['Profitability'].astype(str) + ' ' +
-    film_data['Rotten Tomatoes %'].astype(str) + ' ' +
-    film_data['Worldwide Gross'].astype(str) + ' ' +
-    film_data['Year'].astype(str)
+# Combine all relevant features into one string per movie
+film_collection['feature_string'] = (
+    film_collection['Genre'] + ' ' +
+    film_collection['Lead Studio'] + ' ' +
+    film_collection['Audience score %'].astype(str) + ' ' +
+    film_collection['Profitability'].astype(str) + ' ' +
+    film_collection['Rotten Tomatoes %'].astype(str) + ' ' +
+    film_collection['Worldwide Gross'].astype(str) + ' ' +
+    film_collection['Year'].astype(str)
 )
 
-# Calculate TF-IDF vectors
-vectorizer = TfidfVectorizer(stop_words='english')
-attribute_vectors = vectorizer.fit_transform(film_data['movie_attributes'])
+# Convert features to numerical vectors
+vector_creator = TfidfVectorizer(stop_words='english')
+feature_vectors = vector_creator.fit_transform(film_collection['feature_string'])
 
-# Compute similarity scores
-similarity_matrix = linear_kernel(attribute_vectors, attribute_vectors)
+# Calculate similarity between all movies
+similarity_grid = linear_kernel(feature_vectors, feature_vectors)
 
-def find_similar_films(input_title, similarity_scores=similarity_matrix):
-    """Returns similar films based on content"""
+def find_comparable_films(target_film, similarity_data=similarity_grid):
+    """Find 3 most similar films based on features"""
     try:
-        film_index = film_data[film_data['Film'] == input_title].index[0]
-        film_similarities = list(enumerate(similarity_scores[film_index]))
-        film_similarities = sorted(film_similarities, key=lambda x: x[1], reverse=True)
-        similar_indices = [i[0] for i in film_similarities[1:4]]
-        return film_data['Film'].iloc[similar_indices]
-    except:
-        return ["Film not found in database"]
+        # Locate the target film
+        film_index = film_collection[film_collection['Film'] == target_film].index[0]
+        
+        # Get similarity scores for all films
+        similarity_scores = list(enumerate(similarity_data[film_index]))
+        
+        # Sort films by similarity
+        similarity_scores = sorted(similarity_scores, key=lambda x: x[1], reverse=True)
+        
+        # Get top 3 similar films (skip the first which is itself)
+        similar_films = similarity_scores[1:4]
+        similar_indices = [film[0] for film in similar_films]
+        
+        return film_collection['Film'].iloc[similar_indices].tolist()
+    
+    except IndexError:
+        return ["Film not found in our database"]
 
-# Example usage
-preferred_genre = 'Comedy'
-genre_matches = film_data[film_data['Genre'].str.contains(preferred_genre, case=False)]['Film'].tolist()
-print(f"Recommended {preferred_genre} films:")
-for match in genre_matches[:5]:  # Show top 5
-    print(f"- {match}")
+# Example 1: Get films by genre
+selected_genre = 'Comedy'
+genre_based_selection = film_collection[
+    film_collection['Genre'].str.contains(selected_genre, case=False)
+]['Film'].tolist()
 
-sample_film = 'Twilight'
-print(f"\nFilms similar to '{sample_film}':")
-for similar in find_similar_films(sample_film):
-    print(f"- {similar}")
+print(f"Top {selected_genre} films:")
+for i, film in enumerate(genre_based_selection[:5], 1):
+    print(f"{i}. {film}")
+
+# Example 2: Get similar films
+example_film = 'Twilight'
+print(f"\nFilms similar to '{example_film}':")
+for i, similar_film in enumerate(find_comparable_films(example_film), 1):
+    print(f"{i}. {similar_film}")
